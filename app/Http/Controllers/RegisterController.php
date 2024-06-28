@@ -29,7 +29,7 @@ class RegisterController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation error',
+                'message' => 'Invalid request error',
                 'statusCode' => 422,
             ], 422);
         }
@@ -61,13 +61,12 @@ class RegisterController extends Controller
                 'UserAttributes' => $userAttributes,
             ]);
 
-            Log::info('User registration signUpResult', ['secretHash' => $secretHash]);
+            // Log::info('User registration signUpResult', ['secretHash' => $secretHash]);
 
             return response()->json([
                 'success' => true,
                 'statusCode' => 200,
-                'message' => 'Registration successful. Please check your email and verify your Email Address.',
-                'signUpResult' => $signUpResult
+                'message' => 'Registration successful. Please check your email and verify your Email Address.'
             ]);
 
         } catch (\Aws\Exception\AwsException $e) {

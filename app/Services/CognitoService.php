@@ -42,7 +42,6 @@ class CognitoService
             'success' => false,
             'statusCode' => $statusCode,
             'message' => $message,
-            'dfgsdfg' => $e->getAwsErrorMessage()
         ], $statusCode);
     }
 }

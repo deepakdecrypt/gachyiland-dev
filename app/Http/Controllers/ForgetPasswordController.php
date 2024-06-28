@@ -61,7 +61,11 @@ class ForgetPasswordController extends Controller
             ];
 
             $cognitoClient->forgotPassword($forgotPasswordParams);
-            return response()->json(['message' => 'Password reset initiated. Check your email for the verification code.', 'status' => 200]);
+            return response()->json([
+                'message' => 'Password reset initiated. Check your email for the verification code.',
+                'success' => true,
+                'statusCode' => 200
+            ], 200);
         } catch (AwsException $e) {
             return $this->cognitoService->handleResponseError($e);
         }

@@ -27,7 +27,7 @@ class LoginController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation error',
+                'message' => 'Invalid request error',
                 'statusCode' => 422
             ], 422);
         }
@@ -66,7 +66,7 @@ class LoginController extends Controller
             $awsError = $e->getAwsErrorCode();
             if ($awsError === 'UserNotConfirmedException') {
                 return response()->json([
-                    'success' => false,
+                    'success' => true,
                     'statusCode' => 204,
                     'message' => 'User is not verified. Please verify your email before logging in.',
                 ], 401);
@@ -75,8 +75,7 @@ class LoginController extends Controller
             return response()->json([
                 'success' => false,
                 'statusCode' => 401,
-                'message' => 'Invalid credentials or login failed',
-                'error' => $e->getMessage()
+                'message' => 'Invalid credentials or login failed'
             ], 401);
         }
     }
