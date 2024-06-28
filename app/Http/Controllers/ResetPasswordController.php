@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Services\CognitoService;
 use Illuminate\Support\Facades\Validator;
 use Aws\Exception\AwsException;
+use Illuminate\Support\Facades\Log;
 
 class ResetPasswordController extends Controller
 {
@@ -68,26 +69,17 @@ class ResetPasswordController extends Controller
                 'Password' => $password,
             ];
 
-            $confirmCommand = $cognitoClient->confirmForgotPassword($params);
-            $result = $cognitoClient->send($confirmCommand);
+            Log::info('User Reset Password', ['params' => $params]);
 
-            // Check the result to ensure password reset was successful
-            if ($result['@metadata']['statusCode'] === 200) {
-                return response()->json([
-                    'message' => 'Password reset successful. You can now log in with your new password.',
-                    'status' => 200
-                ], 200);
-            } else {
-                return response()->json([
-                    'message' => 'Password reset failed. Please try again.',
-                    'status' => $result['@metadata']['statusCode']
-                ], $result['@metadata']['statusCode']);
-            }
+            $confirmCommand = $cognitoClient->getCommand('confirmForgotPassword', $params);
+            $cognitoClient->execute($confirmCommand);
 
             return response()->json([
                 'message' => 'Password reset successful. You can now log in with your new password.',
-                'status' => 200
+                'success' => true,
+                'statusCode' => 200,
             ], 200);
+            
         } catch (AwsException $e) { 
             return $this->cognitoService->handleResponseError($e);
         }
