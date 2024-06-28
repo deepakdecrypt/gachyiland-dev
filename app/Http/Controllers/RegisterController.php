@@ -3,12 +3,20 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Aws\CognitoIdentityProvider\CognitoIdentityProviderClient;
+use App\Services\CognitoService;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 
 class RegisterController extends Controller
 {
+    
+    protected $cognitoService;
+
+    public function __construct(CognitoService $cognitoService)
+    {
+        $this->cognitoService = $cognitoService;
+    }
+
     public function register(Request $request)
     {
         // Validate user data (fullname, email, password, etc.)
@@ -23,7 +31,6 @@ class RegisterController extends Controller
                 'success' => false,
                 'message' => 'Validation error',
                 'statusCode' => 422,
-                'errors' => $validator->errors()->toArray(),
             ], 422);
         }
 
@@ -31,14 +38,7 @@ class RegisterController extends Controller
         $email = $request->get('email');
         $password = $request->get('password');
 
-        $client = new CognitoIdentityProviderClient([
-            'region' => env('AWS_REGION'),
-            'version' => 'latest',
-            'credentials' => [
-                'key' => env('AWS_ACCESS_KEY_ID'),
-                'secret' => env('AWS_SECRET_ACCESS_KEY'),
-            ],
-        ]);
+        $cognitoClient = $this->cognitoService->getCognitoClient();
         try {
             $userAttributes = [
                 [
@@ -50,10 +50,10 @@ class RegisterController extends Controller
                     'Value' => $email,
                 ]
             ];
+            
+            $secretHash = $this->cognitoService->generateSecretHash($email);
 
-            $secretHash = $this->generateSecretHash($email, env('AWS_COGNITO_APP_CLIENT_ID'), env('AWS_COGNITO_APP_CLIENT_SECRET'));
-
-            $signUpResult = $client->signUp([
+            $signUpResult = $cognitoClient->signUp([
                 'ClientId' => env('AWS_COGNITO_APP_CLIENT_ID'),
                 'SecretHash' => $secretHash,
                 'Password' => $password,
@@ -66,10 +66,12 @@ class RegisterController extends Controller
             return response()->json([
                 'success' => true,
                 'statusCode' => 200,
-                'message' => 'Registration successful. Please confirm your email address and set a permanent password in Cognito.',
+                'message' => 'Registration successful. Please check your email and verify your Email Address.',
                 'signUpResult' => $signUpResult
             ]);
+
         } catch (\Aws\Exception\AwsException $e) {
+
             Log::info('Error in User registration', ['errrr' => $e]);
             $message = 'Registration failed.';
             $statusCode = 400;
@@ -94,17 +96,7 @@ class RegisterController extends Controller
                 $statusCode = 401;
             }
 
-            return response()->json([
-                'success' => false,
-                'statusCode' => $statusCode,
-                'message' => $message,
-                'error' => $e->getMessage()
-            ], $statusCode);
+            return response()->json([ 'success' => false, 'statusCode' => $statusCode, 'message' => $message, ], $statusCode);
         }
-    }
-
-    private function generateSecretHash($username, $clientId, $clientSecret)
-    {
-        return base64_encode(hash_hmac('sha256', $username . $clientId, $clientSecret, true));
     }
 }

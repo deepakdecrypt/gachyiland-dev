@@ -3,16 +3,24 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Services\CognitoService;
 use Illuminate\Support\Facades\Validator;
-use Aws\CognitoIdentityProvider\CognitoIdentityProviderClient;
+use Aws\Exception\AwsException;
 
 class LoginController extends Controller
 {
+    protected $cognitoService;
+
+    public function __construct(CognitoService $cognitoService)
+    {
+        $this->cognitoService = $cognitoService;
+    }
+
     public function login(Request $request)
     {
-        // Validate user data (fullname, email, password, etc.)
+        // Validate user data (username, password)
         $validator = Validator::make($request->all(), [
-            'username' => 'required|string|email|max:255', // Change 'users' to your user model table name if different
+            'username' => 'required|string|email|max:255',
             'password' => 'required|string|min:6',
         ]);
 
@@ -20,8 +28,7 @@ class LoginController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
-                'statusCode' => 422,
-                'errors' => $validator->errors()->toArray(),
+                'statusCode' => 422
             ], 422);
         }
 
@@ -29,19 +36,14 @@ class LoginController extends Controller
         $password = $request->get('password');
 
         $clientId = env('AWS_COGNITO_APP_CLIENT_ID');
-        $clientSecret = env('AWS_COGNITO_APP_CLIENT_SECRET');
-        $userPoolId = env('AWS_COGNITO_USER_POOL_ID');
 
         // Calculate SECRET_HASH
-        $secretHash = $this->generateSecretHash($username, $clientId, $clientSecret);
+        $secretHash = $this->cognitoService->generateSecretHash($username);
 
-        $client = new CognitoIdentityProviderClient([
-            'region' => env('AWS_REGION'),
-            'version' => 'latest'
-        ]);
+        $cognitoClient = $this->cognitoService->getCognitoClient();
 
         try {
-            $authResult = $client->initiateAuth([
+            $authResult = $cognitoClient->initiateAuth([
                 'AuthFlow' => 'USER_PASSWORD_AUTH',
                 'AuthParameters' => [
                     'USERNAME' => $username,
@@ -51,31 +53,31 @@ class LoginController extends Controller
                 'ClientId' => $clientId,
             ]);
 
-            // Extract access token from the response
-            $accessToken = $authResult['AuthenticationResult']['AccessToken'];
+            $auth_results = $authResult['AuthenticationResult'];
 
             // Handle successful login with access token
             return response()->json([
                 'success' => true,
                 'statusCode' => 200,
                 'message' => 'Login successful',
-                'access_token' => $accessToken,
+                'auth_results' => $auth_results,
             ]);
-        } catch (\Exception $e) {
+        } catch (AwsException $e) {
+            $awsError = $e->getAwsErrorCode();
+            if ($awsError === 'UserNotConfirmedException') {
+                return response()->json([
+                    'success' => false,
+                    'statusCode' => 204,
+                    'message' => 'User is not verified. Please verify your email before logging in.',
+                ], 401);
+            }
             // Handle login failure with appropriate error message
             return response()->json([
                 'success' => false,
                 'statusCode' => 401,
-                'error' => $e->getMessage(),
                 'message' => 'Invalid credentials or login failed',
+                'error' => $e->getMessage()
             ], 401);
         }
-    }
-
-    private function generateSecretHash($username, $clientId, $clientSecret)
-    {
-        $message = $username . $clientId;
-        $hash = hash_hmac('sha256', $message, $clientSecret, true);
-        return base64_encode($hash);
     }
 }
