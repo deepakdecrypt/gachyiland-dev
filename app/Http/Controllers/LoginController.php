@@ -61,7 +61,7 @@ class LoginController extends Controller
                 'statusCode' => 200,
                 'message' => 'Login successful',
                 'auth_results' => $auth_results,
-            ]);
+            ], 200);
         } catch (AwsException $e) {
             $awsError = $e->getAwsErrorCode();
             if ($awsError === 'UserNotConfirmedException') {

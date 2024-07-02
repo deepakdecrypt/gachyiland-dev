@@ -84,7 +84,7 @@ class ResendCodeController extends Controller
                 'error' => $e->getMessage(),
                 'success' => false,
                 'statusCode' => 500,
-            ], 500);
+            ], 500);        
         }
     }
 }

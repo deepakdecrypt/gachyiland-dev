@@ -1,10 +1,22 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Middleware\JwtMiddleware;
+use App\Http\Controllers\LoginController;
+use App\Http\Controllers\RegisterController;
+use App\Http\Controllers\VerifyOTPController;
+use App\Http\Controllers\ResendCodeController;
+use App\Http\Controllers\ForgetPasswordController;
+use App\Http\Controllers\ResetPasswordController;
+use App\Http\Controllers\LogoutController;
 
-Route::post('/login', [\App\Http\Controllers\LoginController::class, 'login']);
-Route::post('/register', [\App\Http\Controllers\RegisterController::class, 'register']);
-Route::post('/verifyotp', [\App\Http\Controllers\VerifyOTPController::class, 'verifyotp']);
-Route::post('/resendcode', [\App\Http\Controllers\ResendCodeController::class, 'resend']);
-Route::post('/forgetpassword', [\App\Http\Controllers\ForgetPasswordController::class, 'initiatePasswordReset']);
-Route::post('/resetpassword', [\App\Http\Controllers\ResetPasswordController::class, 'resetPassword']);
+Route::post('/login', [LoginController::class, 'login']);
+Route::post('/register', [RegisterController::class, 'register']);
+Route::post('/verifyotp', [VerifyOTPController::class, 'verifyotp']);
+Route::post('/resendcode', [ResendCodeController::class, 'resend']);
+Route::post('/forgetpassword', [ForgetPasswordController::class, 'initiatePasswordReset']);
+Route::post('/resetpassword', [ResetPasswordController::class, 'resetPassword']);
+
+Route::middleware([JwtMiddleware::class])->group(function () {
+    Route::get('/logout', [LogoutController::class, 'logout']);
+});

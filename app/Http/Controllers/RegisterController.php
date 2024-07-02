@@ -53,7 +53,7 @@ class RegisterController extends Controller
             
             $secretHash = $this->cognitoService->generateSecretHash($email);
 
-            $signUpResult = $cognitoClient->signUp([
+            $cognitoClient->signUp([
                 'ClientId' => env('AWS_COGNITO_APP_CLIENT_ID'),
                 'SecretHash' => $secretHash,
                 'Password' => $password,
@@ -67,7 +67,7 @@ class RegisterController extends Controller
                 'success' => true,
                 'statusCode' => 200,
                 'message' => 'Registration successful. Please check your email and verify your Email Address.'
-            ]);
+            ], 200);
 
         } catch (\Aws\Exception\AwsException $e) {
 
