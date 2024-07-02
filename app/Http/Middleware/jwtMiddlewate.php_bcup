@@ -5,15 +5,16 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Firebase\JWT\JWT;
-use Firebase\JWT\JWK;
+use Firebase\JWT\Key;
 use Firebase\JWT\ExpiredException;
+use CoderCat\JWKToPEM\JWKConverter;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use App\Services\CognitoService;
-use Aws\Exception\AwsException;
 
 class JwtMiddleware
 {
+
     protected $cognitoService;
 
     public function __construct(CognitoService $cognitoService)
@@ -41,28 +42,19 @@ class JwtMiddleware
         $accessToken = $matches[1];
         try {
             $decodedToken = $this->decodeToken($accessToken);
+            Log::info('Token Validated', ['decodedToken' => $decodedToken]);
+
             $cognitoClient = $this->cognitoService->getCognitoClient();
+
             $userData = $cognitoClient->getUser(['AccessToken' => $accessToken ]);
+
+            // Add decoded token to request attributes for access in controllers
             $request->attributes->add(['decodedToken' => $decodedToken, 'userData' => $userData]);
             return $next($request);
         } catch (ExpiredException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Token has expired',
-                'statusCode' => 401
-            ], 401);
-        } catch (AwsException $e) {
-            if ($e->getAwsErrorCode() == 'NotAuthorizedException') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Access Token has been revoked',
-                    'statusCode' => 401
-                ], 401);
-            }
-            Log::error('AWS error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Token is invalid',
                 'statusCode' => 401
             ], 401);
         } catch (Exception $e) {
@@ -79,7 +71,7 @@ class JwtMiddleware
     {
         $region = env('AWS_REGION');
         $userPoolId = env('AWS_COGNITO_USER_POOL_ID');
-        $cognitoKeysUrl = "https://cognito-idp.{$region}.amazonaws.com/{$userPoolId}/.well-known/jwks.json";   
+        $cognitoKeysUrl = "https://cognito-idp.{$region}.amazonaws.com/{$userPoolId}/.well-known/jwks.json"; 
         $keys = @file_get_contents($cognitoKeysUrl);
         if ($keys === false) {
             throw new Exception('Unable to fetch Cognito keys');
@@ -88,9 +80,30 @@ class JwtMiddleware
         if (!isset($decodedKeys['keys'])) {
             throw new Exception('Invalid JWK set format');
         }
+
         // Verify the token signature
         try {
-            $decodedToken = JWT::decode($token, JWK::parseKeySet(['keys' => $decodedKeys['keys'] ], 'RS256'));
+            $tokenKid = "";
+            $tks = explode('.', $token);
+            if (count($tks) === 3) {
+                $header = JWT::jsonDecode(JWT::urlsafeB64Decode($tks[0]));
+                if (isset($header->kid)) {
+                    $tokenKid = $header->kid;
+                }
+            }
+            $tokenJWT = "";
+            if ($decodedKeys && isset($decodedKeys["keys"]) && is_array($decodedKeys["keys"])) {
+                foreach ($decodedKeys["keys"] as $subArray) {
+                    if ($subArray['kid'] === $tokenKid) {
+                        $tokenJWT = $subArray;
+                    }
+                }
+            }
+
+            $jwkConverter = new JWKConverter();
+            $publickKey = $jwkConverter->toPEM($tokenJWT);
+            $decodedToken = JWT::decode($token, new Key($publickKey, 'RS256'));
+
         } catch (ExpiredException $e) {
             throw $e; // Handle expiration separately if needed
         } catch (Exception $e) {
