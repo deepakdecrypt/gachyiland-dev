@@ -35,8 +35,8 @@ class JwtMiddleware
             return response()->json([
                 'success' => false,
                 'message' => 'Authorization header not found or invalid format',
-                'statusCode' => 400
-            ], 400);
+                'statusCode' => 401
+            ], 401);
         }
         $accessToken = $matches[1];
         try {

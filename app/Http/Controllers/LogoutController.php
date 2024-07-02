@@ -31,8 +31,8 @@ class LogoutController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Authorization header not found or invalid format',
-                    'statusCode' => 400
-                ], 400);
+                    'statusCode' => 401
+                ], 401);
             }
             $accessToken = $matches[1];
             
@@ -48,8 +48,7 @@ class LogoutController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to logout, please try again',
-                'statusCode' => 500,
-                'dsgfdg' => $e->getMessage(),
+                'statusCode' => 500
             ], 500);
         }
     }
